@@ -20,8 +20,18 @@
     .hud{
       position:absolute;left:12px;top:12px;z-index:50;
       display:flex;gap:12px;align-items:center;
-
+  
     }
+
+    /* Floating "Leave a mark" text
+    .floating-text{
+      position:fixed;left:50%;top:8%;transform:translateX(-50%);
+      z-index:50;font-size:20px;letter-spacing:1px;font-weight:500;color:#fff;
+      text-shadow:0 0 8px rgba(0,0,0,.6);pointer-events:none;animation:float 4s ease-in-out infinite;
+    }
+    @keyframes float{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,-6px)}} */
+
+      
     .chip{font-size:12px;color:#e5e7eb}
     .ui32{width:32px;height:32px}
     .ui16h{height:16px}
@@ -34,6 +44,9 @@
       border-radius:12px;padding:8px 10px;border:1px solid rgba(255,255,255,.08)
     }
 
+
+     #mount, canvas{cursor:url('./ui/click_mark.png') 16 16, auto}
+    body.editor-open #mount, body.editor-open canvas{cursor:url('./ui/cursor_cross.png') 16 16, crosshair}
     /* Mobile D-pad (bottom-left) */
     .dpad{
       position:absolute;left:12px;bottom:12px;z-index:50;
@@ -54,9 +67,9 @@
    
     <div class="hud">
       <button id="btnPlace" class="btn" title="Place Mark">
-        <p>Leave a mark</p>
+    <p>Leave a mark</p>
       </button>
-    </div>
+    </div> 
 
     
     <div class="hud-right">
@@ -81,9 +94,76 @@
 </html>
 
 
-<!-- ****** version new *****  -->
+<!-- ****** best version ^ *****  -->
+<!-- 
 
 
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Leave a mark, on this place</title>
+  <style>
+    html,body{margin:0;height:100%;background:#000;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+    #mount{position:relative;width:100vw;height:100vh;overflow:hidden;touch-action:none}
+    canvas{display:block;touch-action:none}
+    .pixel{image-rendering:pixelated}
+
+    /* Floating "Leave a mark" text */
+    .floating-text{
+      position:absolute;left:50%;top:8%;transform:translateX(-50%);
+      z-index:50;font-size:20px;letter-spacing:1px;font-weight:500;color:#fff;
+      text-shadow:0 0 8px rgba(0,0,0,.6);pointer-events:none;animation:float 4s ease-in-out infinite;
+    }
+    @keyframes float{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,-6px)}}
+
+    /* Timer/Counts (top-right) */
+    .hud-right{
+      position:absolute;right:12px;top:12px;z-index:50;display:flex;gap:12px;align-items:center;
+      background:rgba(0,0,0,.45);backdrop-filter:blur(2px);border-radius:12px;padding:8px 10px;border:1px solid rgba(255,255,255,.08)
+    }
+    .chip{font-size:12px;color:#e5e7eb}
+
+    /* D-pad (bottom-left) */
+    .dpad{
+      position:absolute;left:12px;bottom:12px;z-index:50;display:grid;
+      grid-template-areas:". up .""left . right"". down .";gap:8px;touch-action:none;user-select:none
+    }
+    .dpad img{width:64px;height:64px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.6))}
+    .dpad .up{grid-area:up}.dpad .down{grid-area:down}.dpad .left{grid-area:left}.dpad .right{grid-area:right}
+
+    /* Editor modal */
+    .overlay{position:fixed;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.45);z-index:100}
+    .nine{border:8px solid transparent;border-image:url(./ui/panel_frame.PNG) 8 fill stretch}
+
+    /* Cursors */
+    #mount, canvas{cursor:url('./ui/click_mark.png') 16 16, auto}
+    body.editor-open #mount, body.editor-open canvas{cursor:url('./ui/cursor_cross.png') 16 16, crosshair}
+  </style>
+</head>
+<body>
+  <div id="mount">
+    <div class="floating-text">Leave a mark</div>
+    <div class="hud-right">
+      <div class="chip">Time: <b id="timer">120s</b></div>
+      <div class="chip">Visitors: <span id="visitors">0</span></div>
+      <div class="chip">Marks: <span id="marks">0</span></div>
+    </div>
+    <div class="dpad">
+      <img class="up"    src="./ui/dpad_up.PNG"    alt="up">
+      <img class="down"  src="./ui/dpad_down.PNG"  alt="down">
+      <img class="left"  src="./ui/dpad_left.PNG"  alt="left">
+      <img class="right" src="./ui/dpad_right.PNG" alt="right">
+    </div>
+  </div>
+  <script type="module" src="https://unpkg.com/three@0.160.0/build/three.module.js"></script>
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html> -->
+
+
+<!-- NEW NEW NEW above (version after above above)-->
 
 
 

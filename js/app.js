@@ -1,3 +1,287 @@
+
+// *****************
+
+
+
+import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js'
+import { openPixelEditor } from './editor.js'
+import { apiVisit, apiGetMarks, apiPostMark, apiStats } from './api.js';
+
+/* new *** -------- CONFIG -------- */
+const GRID_W = 64, GRID_H = 32, TILE = 1
+const SESSION_SECONDS = 120
+const RESET_WORLD = false  // toggle this true to reset everything once
+
+const PALETTE = [
+  '#000000','#FFFFFF','#FF0000','#FF7F00','#FFFF00','#00FF00','#00FFFF',
+  '#0000FF','#8B00FF','#FFC0CB','#FFA500','#FFD700','#7FFF00','#40E0D0','#4169E1','#8A2BE2'
+]
+
+/* -------- PERSISTENCE -------- */
+const LS = {
+  k:'pmark_state_v1',
+  load(){ try { return JSON.parse(localStorage.getItem(this.k))||{} } catch { return {} } },
+  save(o){ localStorage.setItem(this.k, JSON.stringify(o)) },
+  clear(){ localStorage.removeItem(this.k) }   // new helper
+}
+
+// Reset flag (used for “world start/reset”)
+if (RESET_WORLD) {
+  LS.clear()
+  console.warn('🌍 World has been reset — all marks cleared.')
+}
+
+// Load state after potential reset
+const state = LS.load()
+state.visitors = state.visitors || 0
+state.marks = state.marks || []
+LS.save(state)
+
+// /*  old *** -------- CONFIG -------- */
+// const GRID_W = 64, GRID_H = 32, TILE = 1
+// const SESSION_SECONDS = 90
+// const PALETTE = [
+//   '#000000','#FFFFFF','#FF0000','#FF7F00','#FFFF00','#00FF00','#00FFFF',
+//   '#0000FF','#8B00FF','#FFC0CB','#FFA500','#FFD700','#7FFF00','#40E0D0','#4169E1','#8A2BE2'
+// ]
+
+// /* -------- PERSISTENCE (no server) -------- */
+// const LS = { k:'pmark_state_v1',
+//   load(){ try { return JSON.parse(localStorage.getItem(this.k))||{} } catch { return {} } },
+//   save(o){ localStorage.setItem(this.k, JSON.stringify(o)) }
+// }
+// const state = LS.load()
+// state.visitors = state.visitors || 0
+// state.marks = state.marks || []
+// LS.save(state)
+
+/* ************ */
+
+/* -------- DOM -------- */
+const mount      = document.getElementById('mount')
+const btnPlace   = document.getElementById('btnPlace')
+const timerEl    = document.getElementById('timer')
+const visitorsEl = document.getElementById('visitors')
+
+/* -------- THREE -------- */
+const renderer = new THREE.WebGLRenderer({ antialias:false, alpha:false })
+renderer.setPixelRatio(1) // crispy pixels
+renderer.setSize(mount.clientWidth, mount.clientHeight, false)
+mount.appendChild(renderer.domElement)
+
+const scene = new THREE.Scene()
+scene.background = new THREE.Color(0x000000)
+
+// tighter frustum -> zoomed-in
+const cam = new THREE.OrthographicCamera(
+  -(GRID_W*TILE)/6, (GRID_W*TILE)/6,
+  (GRID_H*TILE)/6, -(GRID_H*TILE)/6,
+  -100, 100
+)
+cam.position.set(0, 28, 0)
+cam.rotation.x = -Math.PI/2
+
+function resize(){
+  renderer.setSize(mount.clientWidth, mount.clientHeight, false)
+}
+addEventListener('resize', resize)
+
+/* -------- TEXTURES -------- */
+const loader = new THREE.TextureLoader()
+
+// Prairie (ground)
+const prairie = loader.load('./assets/play_area.PNG')
+prairie.wrapS = prairie.wrapT = THREE.RepeatWrapping
+prairie.repeat.set(2,2)
+prairie.magFilter = prairie.minFilter = THREE.NearestFilter
+prairie.colorSpace = THREE.SRGBColorSpace
+
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(GRID_W*TILE, GRID_H*TILE),
+  new THREE.MeshBasicMaterial({ map: prairie })
+)
+ground.rotation.x = -Math.PI/2
+scene.add(ground)
+
+// Optional play_area overlay (if present)
+let playArea = null
+try {
+  const tex = loader.load('./assets/play_area.png', (t)=>{
+    t.magFilter = t.minFilter = THREE.NearestFilter
+    t.colorSpace = THREE.SRGBColorSpace
+  })
+  playArea = new THREE.Mesh(
+    new THREE.PlaneGeometry(GRID_W*TILE, GRID_H*TILE),
+    new THREE.MeshBasicMaterial({ map: tex, transparent:true, opacity:1 })
+  )
+  playArea.rotation.x = -Math.PI/2
+  playArea.position.y = 0.11
+  playArea.renderOrder = 2
+  scene.add(playArea)
+} catch { /* ignore missing */ }
+
+// Subtle grid + border (feel of “tile space”)
+const grid = new THREE.GridHelper(GRID_W, GRID_W, 0x2a2f36, 0x1b1f25)
+grid.position.y = 0.051
+grid.renderOrder = 1
+scene.add(grid)
+
+{
+  const geo = new THREE.BufferGeometry()
+  const x0=-GRID_W/2, x1=GRID_W/2, z0=-GRID_H/2, z1=GRID_H/2
+  const v = new Float32Array([
+    x0,0.12,z0, x1,0.12,z0,
+    x1,0.12,z0, x1,0.12,z1,
+    x1,0.12,z1, x0,0.12,z1,
+    x0,0.12,z1, x0,0.12,z0
+  ])
+  geo.setAttribute('position', new THREE.BufferAttribute(v,3))
+  const mat = new THREE.LineBasicMaterial({ color:0x6b7280 })
+  const fence = new THREE.LineSegments(geo, mat)
+  fence.renderOrder = 3
+  scene.add(fence)
+}
+
+/* -------- PLAYER -------- */
+const playerTex = loader.load('./ui/player_red.PNG')
+playerTex.magFilter = playerTex.minFilter = THREE.NearestFilter
+playerTex.colorSpace = THREE.SRGBColorSpace
+const player = new THREE.Mesh(
+  new THREE.PlaneGeometry(1.6,1.6),
+  new THREE.MeshBasicMaterial({ map: playerTex, transparent:true })
+)
+player.rotation.x = -Math.PI/2
+player.position.y = 0.20           // above play_area & marks
+player.renderOrder = 10            // draw last
+scene.add(player)
+
+/* -------- MARKS -------- */
+function addMarkSprite(dataURL, gx, gy){
+  const tex = new THREE.TextureLoader().load(dataURL)
+  tex.magFilter = tex.minFilter = THREE.NearestFilter
+  tex.colorSpace = THREE.SRGBColorSpace
+  const s = new THREE.Mesh(
+    new THREE.PlaneGeometry(2,2),
+    new THREE.MeshBasicMaterial({ map: tex, transparent:true })
+  )
+  s.rotation.x = -Math.PI/2
+  s.position.set((gx - GRID_W/2 + 0.5)*TILE, 0.15, (gy - GRID_H/2 + 0.5)*TILE)
+  s.renderOrder = 5                 // under player, above overlay
+  scene.add(s)
+}
+state.marks.forEach(m => addMarkSprite(m.data, m.gx, m.gy))
+
+/* -------- DECAY (desaturate prairie as marks & visits increase) -------- */
+function computeDecay(){ return Math.min(1,(state.marks.length + (state.visitors||0)) * 0.03) }
+function applyDecay(){
+  const dec = computeDecay()
+  ground.material.onBeforeCompile = (s) => {
+    s.fragmentShader = s.fragmentShader
+      .replace('#include <common>', `#include <common>
+vec3 rgb2hsv(vec3 c){vec4 K=vec4(0.,-1./3.,2./3.,-1.);
+vec4 p=mix(vec4(c.bg,K.wz),vec4(c.gb,K.xy),step(c.b,c.g));
+vec4 q=mix(vec4(p.xyw,c.r),vec4(c.r,p.yzx),step(p.x,c.r));
+float d=q.x-min(q.w,q.y);float e=1e-10;
+return vec3(abs(q.z+(q.w-q.y)/(6.*d+e)),d/(q.x+e),q.x);}
+vec3 hsv2rgb(vec3 c){vec3 p=abs(fract(c.xxx+vec3(0.,1./3.,2./3.))*6.-3.);
+return c.z*mix(vec3(1.),clamp(p-1.,0.,1.),c.y);}`)
+      .replace('gl_FragColor = vec4( outgoingLight, diffuseColor.a );',
+        `vec3 hsv = rgb2hsv(outgoingLight);
+         hsv.y *= (1.0 - ${dec.toFixed(3)} * 0.9);
+         gl_FragColor = vec4(hsv2rgb(hsv), diffuseColor.a);`)
+  }
+  ground.material.needsUpdate = true
+}
+applyDecay()
+
+/* -------- MOVEMENT -------- */
+let target = { x: Math.floor(GRID_W/2), y: Math.floor(GRID_H/2) }
+
+function place(){
+  player.position.x = (target.x - GRID_W/2 + 0.5)*TILE
+  player.position.z = (target.y - GRID_H/2 + 0.5)*TILE
+  cam.position.x = player.position.x
+  cam.position.z = player.position.z
+  cam.lookAt(player.position.x, 0, player.position.z)
+}
+function clampStep(dx,dy){
+  target.x = Math.max(0, Math.min(GRID_W-1, target.x + dx))
+  target.y = Math.max(0, Math.min(GRID_H-1, target.y + dy))
+  place()
+}
+place()
+
+// D-pad (hold-to-repeat)
+function holdRepeat(fn){
+  let id=0
+  return {
+    start(){ fn(); id=setInterval(fn,110) },
+    stop(){ clearInterval(id) }
+  }
+}
+function bindHold(sel, fn){
+  const el = document.querySelector(sel); if(!el) return
+  const rep = holdRepeat(fn)
+  el.addEventListener('mousedown', rep.start)
+  el.addEventListener('mouseup', rep.stop)
+  el.addEventListener('mouseleave', rep.stop)
+  el.addEventListener('touchstart', e=>{ e.preventDefault(); rep.start() }, { passive:false })
+  el.addEventListener('touchend', rep.stop)
+  el.addEventListener('touchcancel', rep.stop)
+}
+bindHold('.dpad .up',    ()=>clampStep(0,-1))
+bindHold('.dpad .down',  ()=>clampStep(0, 1))
+bindHold('.dpad .left',  ()=>clampStep(-1,0))
+bindHold('.dpad .right', ()=>clampStep(1, 0))
+
+// Keyboard
+addEventListener('keydown', (e)=>{
+  if(e.key==='ArrowUp')clampStep(0,-1)
+  if(e.key==='ArrowDown')clampStep(0, 1)
+  if(e.key==='ArrowLeft')clampStep(-1,0)
+  if(e.key==='ArrowRight')clampStep(1,0)
+})
+
+// Click/tap = open editor at current tile
+renderer.domElement.addEventListener('click', ()=> openEditorAt(target.x, target.y))
+// Star button
+btnPlace.onclick = () => openEditorAt(target.x, target.y)
+
+/* -------- TIMER -------- */
+let timeLeft = SESSION_SECONDS
+timerEl.textContent = `${timeLeft}s`
+visitorsEl.textContent = String(state.visitors || 0)
+const tick = setInterval(()=>{
+  timeLeft = Math.max(0, timeLeft - 1)
+  timerEl.textContent = `${timeLeft}s`
+  if (timeLeft === 0){
+    clearInterval(tick)
+    state.visitors = (state.visitors||0) + 1
+    LS.save(state)
+    location.href = './kicked.html'
+  }
+}, 1000)
+
+/* -------- RENDER LOOP -------- */
+function animate(){ renderer.render(scene, cam); requestAnimationFrame(animate) }
+animate()
+
+/* -------- EDITOR -------- */
+function openEditorAt(gx, gy){
+  openPixelEditor({
+    palette: PALETTE,
+    onCancel: () => {},
+    onSave: (dataURL) => {
+      addMarkSprite(dataURL, gx, gy)
+      state.marks.push({ data:dataURL, gx, gy, at:Date.now() })
+      LS.save(state)
+      applyDecay()
+    }
+  })
+}
+
+
+
 // import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js'
 // import { openPixelEditor } from './editor.js'
 
@@ -1383,283 +1667,3 @@
 // }
 
 
-
-// *****************
-
-
-
-import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js'
-import { openPixelEditor } from './editor.js'
-
-
-/* new *** -------- CONFIG -------- */
-const GRID_W = 64, GRID_H = 32, TILE = 1
-const SESSION_SECONDS = 120
-const RESET_WORLD = false  // 👈 toggle this true to reset everything once
-const PALETTE = [
-  '#000000','#FFFFFF','#FF0000','#FF7F00','#FFFF00','#00FF00','#00FFFF',
-  '#0000FF','#8B00FF','#FFC0CB','#FFA500','#FFD700','#7FFF00','#40E0D0','#4169E1','#8A2BE2'
-]
-
-/* -------- PERSISTENCE -------- */
-const LS = {
-  k:'pmark_state_v1',
-  load(){ try { return JSON.parse(localStorage.getItem(this.k))||{} } catch { return {} } },
-  save(o){ localStorage.setItem(this.k, JSON.stringify(o)) },
-  clear(){ localStorage.removeItem(this.k) }   // 👈 new helper
-}
-
-// Reset flag (used for “world start/reset”)
-if (RESET_WORLD) {
-  LS.clear()
-  console.warn('🌍 World has been reset — all marks cleared.')
-}
-
-// Load state after potential reset
-const state = LS.load()
-state.visitors = state.visitors || 0
-state.marks = state.marks || []
-LS.save(state)
-
-// /*  old *** -------- CONFIG -------- */
-// const GRID_W = 64, GRID_H = 32, TILE = 1
-// const SESSION_SECONDS = 90
-// const PALETTE = [
-//   '#000000','#FFFFFF','#FF0000','#FF7F00','#FFFF00','#00FF00','#00FFFF',
-//   '#0000FF','#8B00FF','#FFC0CB','#FFA500','#FFD700','#7FFF00','#40E0D0','#4169E1','#8A2BE2'
-// ]
-
-// /* -------- PERSISTENCE (no server) -------- */
-// const LS = { k:'pmark_state_v1',
-//   load(){ try { return JSON.parse(localStorage.getItem(this.k))||{} } catch { return {} } },
-//   save(o){ localStorage.setItem(this.k, JSON.stringify(o)) }
-// }
-// const state = LS.load()
-// state.visitors = state.visitors || 0
-// state.marks = state.marks || []
-// LS.save(state)
-
-/* ************ */
-
-/* -------- DOM -------- */
-const mount      = document.getElementById('mount')
-const btnPlace   = document.getElementById('btnPlace')
-const timerEl    = document.getElementById('timer')
-const visitorsEl = document.getElementById('visitors')
-
-/* -------- THREE -------- */
-const renderer = new THREE.WebGLRenderer({ antialias:false, alpha:false })
-renderer.setPixelRatio(1) // crispy pixels
-renderer.setSize(mount.clientWidth, mount.clientHeight, false)
-mount.appendChild(renderer.domElement)
-
-const scene = new THREE.Scene()
-scene.background = new THREE.Color(0x000000)
-
-// tighter frustum -> zoomed-in
-const cam = new THREE.OrthographicCamera(
-  -(GRID_W*TILE)/6, (GRID_W*TILE)/6,
-  (GRID_H*TILE)/6, -(GRID_H*TILE)/6,
-  -100, 100
-)
-cam.position.set(0, 28, 0)
-cam.rotation.x = -Math.PI/2
-
-function resize(){
-  renderer.setSize(mount.clientWidth, mount.clientHeight, false)
-}
-addEventListener('resize', resize)
-
-/* -------- TEXTURES -------- */
-const loader = new THREE.TextureLoader()
-
-// Prairie (ground)
-const prairie = loader.load('./assets/prairie1.jpg')
-prairie.wrapS = prairie.wrapT = THREE.RepeatWrapping
-prairie.repeat.set(2,2)
-prairie.magFilter = prairie.minFilter = THREE.NearestFilter
-prairie.colorSpace = THREE.SRGBColorSpace
-
-const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(GRID_W*TILE, GRID_H*TILE),
-  new THREE.MeshBasicMaterial({ map: prairie })
-)
-ground.rotation.x = -Math.PI/2
-scene.add(ground)
-
-// Optional play_area overlay (if present)
-let playArea = null
-try {
-  const tex = loader.load('./assets/play_area.png', (t)=>{
-    t.magFilter = t.minFilter = THREE.NearestFilter
-    t.colorSpace = THREE.SRGBColorSpace
-  })
-  playArea = new THREE.Mesh(
-    new THREE.PlaneGeometry(GRID_W*TILE, GRID_H*TILE),
-    new THREE.MeshBasicMaterial({ map: tex, transparent:true, opacity:1 })
-  )
-  playArea.rotation.x = -Math.PI/2
-  playArea.position.y = 0.11
-  playArea.renderOrder = 2
-  scene.add(playArea)
-} catch { /* ignore missing */ }
-
-// Subtle grid + border (feel of “tile space”)
-const grid = new THREE.GridHelper(GRID_W, GRID_W, 0x2a2f36, 0x1b1f25)
-grid.position.y = 0.051
-grid.renderOrder = 1
-scene.add(grid)
-
-{
-  const geo = new THREE.BufferGeometry()
-  const x0=-GRID_W/2, x1=GRID_W/2, z0=-GRID_H/2, z1=GRID_H/2
-  const v = new Float32Array([
-    x0,0.12,z0, x1,0.12,z0,
-    x1,0.12,z0, x1,0.12,z1,
-    x1,0.12,z1, x0,0.12,z1,
-    x0,0.12,z1, x0,0.12,z0
-  ])
-  geo.setAttribute('position', new THREE.BufferAttribute(v,3))
-  const mat = new THREE.LineBasicMaterial({ color:0x6b7280 })
-  const fence = new THREE.LineSegments(geo, mat)
-  fence.renderOrder = 3
-  scene.add(fence)
-}
-
-/* -------- PLAYER -------- */
-const playerTex = loader.load('./ui/player_red.PNG')
-playerTex.magFilter = playerTex.minFilter = THREE.NearestFilter
-playerTex.colorSpace = THREE.SRGBColorSpace
-const player = new THREE.Mesh(
-  new THREE.PlaneGeometry(1.6,1.6),
-  new THREE.MeshBasicMaterial({ map: playerTex, transparent:true })
-)
-player.rotation.x = -Math.PI/2
-player.position.y = 0.20           // above play_area & marks
-player.renderOrder = 10            // draw last
-scene.add(player)
-
-/* -------- MARKS -------- */
-function addMarkSprite(dataURL, gx, gy){
-  const tex = new THREE.TextureLoader().load(dataURL)
-  tex.magFilter = tex.minFilter = THREE.NearestFilter
-  tex.colorSpace = THREE.SRGBColorSpace
-  const s = new THREE.Mesh(
-    new THREE.PlaneGeometry(2,2),
-    new THREE.MeshBasicMaterial({ map: tex, transparent:true })
-  )
-  s.rotation.x = -Math.PI/2
-  s.position.set((gx - GRID_W/2 + 0.5)*TILE, 0.15, (gy - GRID_H/2 + 0.5)*TILE)
-  s.renderOrder = 5                 // under player, above overlay
-  scene.add(s)
-}
-state.marks.forEach(m => addMarkSprite(m.data, m.gx, m.gy))
-
-/* -------- DECAY (desaturate prairie as marks & visits increase) -------- */
-function computeDecay(){ return Math.min(1,(state.marks.length + (state.visitors||0)) * 0.03) }
-function applyDecay(){
-  const dec = computeDecay()
-  ground.material.onBeforeCompile = (s) => {
-    s.fragmentShader = s.fragmentShader
-      .replace('#include <common>', `#include <common>
-vec3 rgb2hsv(vec3 c){vec4 K=vec4(0.,-1./3.,2./3.,-1.);
-vec4 p=mix(vec4(c.bg,K.wz),vec4(c.gb,K.xy),step(c.b,c.g));
-vec4 q=mix(vec4(p.xyw,c.r),vec4(c.r,p.yzx),step(p.x,c.r));
-float d=q.x-min(q.w,q.y);float e=1e-10;
-return vec3(abs(q.z+(q.w-q.y)/(6.*d+e)),d/(q.x+e),q.x);}
-vec3 hsv2rgb(vec3 c){vec3 p=abs(fract(c.xxx+vec3(0.,1./3.,2./3.))*6.-3.);
-return c.z*mix(vec3(1.),clamp(p-1.,0.,1.),c.y);}`)
-      .replace('gl_FragColor = vec4( outgoingLight, diffuseColor.a );',
-        `vec3 hsv = rgb2hsv(outgoingLight);
-         hsv.y *= (1.0 - ${dec.toFixed(3)} * 0.9);
-         gl_FragColor = vec4(hsv2rgb(hsv), diffuseColor.a);`)
-  }
-  ground.material.needsUpdate = true
-}
-applyDecay()
-
-/* -------- MOVEMENT -------- */
-let target = { x: Math.floor(GRID_W/2), y: Math.floor(GRID_H/2) }
-
-function place(){
-  player.position.x = (target.x - GRID_W/2 + 0.5)*TILE
-  player.position.z = (target.y - GRID_H/2 + 0.5)*TILE
-  cam.position.x = player.position.x
-  cam.position.z = player.position.z
-  cam.lookAt(player.position.x, 0, player.position.z)
-}
-function clampStep(dx,dy){
-  target.x = Math.max(0, Math.min(GRID_W-1, target.x + dx))
-  target.y = Math.max(0, Math.min(GRID_H-1, target.y + dy))
-  place()
-}
-place()
-
-// D-pad (hold-to-repeat)
-function holdRepeat(fn){
-  let id=0
-  return {
-    start(){ fn(); id=setInterval(fn,110) },
-    stop(){ clearInterval(id) }
-  }
-}
-function bindHold(sel, fn){
-  const el = document.querySelector(sel); if(!el) return
-  const rep = holdRepeat(fn)
-  el.addEventListener('mousedown', rep.start)
-  el.addEventListener('mouseup', rep.stop)
-  el.addEventListener('mouseleave', rep.stop)
-  el.addEventListener('touchstart', e=>{ e.preventDefault(); rep.start() }, { passive:false })
-  el.addEventListener('touchend', rep.stop)
-  el.addEventListener('touchcancel', rep.stop)
-}
-bindHold('.dpad .up',    ()=>clampStep(0,-1))
-bindHold('.dpad .down',  ()=>clampStep(0, 1))
-bindHold('.dpad .left',  ()=>clampStep(-1,0))
-bindHold('.dpad .right', ()=>clampStep(1, 0))
-
-// Keyboard
-addEventListener('keydown', (e)=>{
-  if(e.key==='ArrowUp')clampStep(0,-1)
-  if(e.key==='ArrowDown')clampStep(0, 1)
-  if(e.key==='ArrowLeft')clampStep(-1,0)
-  if(e.key==='ArrowRight')clampStep(1,0)
-})
-
-// Click/tap = open editor at current tile
-renderer.domElement.addEventListener('click', ()=> openEditorAt(target.x, target.y))
-// Star button
-btnPlace.onclick = () => openEditorAt(target.x, target.y)
-
-/* -------- TIMER -------- */
-let timeLeft = SESSION_SECONDS
-timerEl.textContent = `${timeLeft}s`
-visitorsEl.textContent = String(state.visitors || 0)
-const tick = setInterval(()=>{
-  timeLeft = Math.max(0, timeLeft - 1)
-  timerEl.textContent = `${timeLeft}s`
-  if (timeLeft === 0){
-    clearInterval(tick)
-    state.visitors = (state.visitors||0) + 1
-    LS.save(state)
-    location.href = './kicked.html'
-  }
-}, 1000)
-
-/* -------- RENDER LOOP -------- */
-function animate(){ renderer.render(scene, cam); requestAnimationFrame(animate) }
-animate()
-
-/* -------- EDITOR -------- */
-function openEditorAt(gx, gy){
-  openPixelEditor({
-    palette: PALETTE,
-    onCancel: () => {},
-    onSave: (dataURL) => {
-      addMarkSprite(dataURL, gx, gy)
-      state.marks.push({ data:dataURL, gx, gy, at:Date.now() })
-      LS.save(state)
-      applyDecay()
-    }
-  })
-}
