@@ -1395,7 +1395,7 @@ import { openPixelEditor } from './editor.js'
 /* new *** -------- CONFIG -------- */
 const GRID_W = 64, GRID_H = 32, TILE = 1
 const SESSION_SECONDS = 120
-const RESET_WORLD = false  // 👈 toggle this true to reset everything once
+const RESET_WORLD = true  // toggle this true to reset everything once
 const PALETTE = [
   '#000000','#FFFFFF','#FF0000','#FF7F00','#FFFF00','#00FF00','#00FFFF',
   '#0000FF','#8B00FF','#FFC0CB','#FFA500','#FFD700','#7FFF00','#40E0D0','#4169E1','#8A2BE2'
