@@ -56,7 +56,7 @@
 <!-- ******************** -->
 
 
-
+<!-- 
 
 
 <!doctype html>
@@ -123,4 +123,92 @@
   <script type="module" src="https://unpkg.com/three@0.160.0/build/three.module.js"></script>
   <script type="module" src="./js/app.js"></script>
 </body>
-</html> 
+</html>  -->
+
+
+
+<!-- ************** -->
+
+
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>pixel_mark — game</title>
+  <style>
+    html,body{margin:0;height:100%;background:#000;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+    /* Fullscreen play area */
+    #mount{position:relative;width:100vw;height:100vh;overflow:hidden;touch-action:none}
+    canvas{display:block;touch-action:none}
+    .pixel{image-rendering:pixelated}
+    .btn{background:transparent;border:0;padding:0;cursor:pointer}
+
+    /* HUD overlay (top-left) */
+    .hud{
+      position:absolute;left:12px;top:12px;z-index:50;
+      display:flex;gap:12px;align-items:center;
+      background:rgba(0,0,0,.45);backdrop-filter:blur(2px);
+      border-radius:12px;padding:8px 10px;border:1px solid rgba(255,255,255,.08)
+    }
+    .chip{font-size:12px;color:#e5e7eb}
+    .ui32{width:32px;height:32px}
+    .ui16h{height:16px}
+
+    /* Timer cluster (top-right) */
+    .hud-right{
+      position:absolute;right:12px;top:12px;z-index:50;
+      display:flex;gap:12px;align-items:center;
+      background:rgba(0,0,0,.45);backdrop-filter:blur(2px);
+      border-radius:12px;padding:8px 10px;border:1px solid rgba(255,255,255,.08)
+    }
+
+    /* Mobile D-pad (bottom-left) */
+    .dpad{
+      position:absolute;left:12px;bottom:12px;z-index:50;
+      display:grid;grid-template-areas:". up .""left . right"". down .";gap:8px;
+      touch-action:none;user-select:none
+    }
+    .dpad img{width:64px;height:64px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.6))}
+    .dpad .up{grid-area:up}.dpad .down{grid-area:down}.dpad .left{grid-area:left}.dpad .right{grid-area:right}
+
+    /* Pixel editor modal overlay */
+    .overlay{position:fixed;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.45);z-index:100}
+    .nine{border:8px solid transparent;border-image:url(./ui/panel_frame.PNG) 8 fill stretch}
+
+    @media (max-width:640px){
+      .ui32{width:28px;height:28px}
+      .dpad img{width:72px;height:72px}
+    }
+  </style>
+</head>
+<body>
+  <div id="mount">
+    <!-- HUD: left block (star) -->
+    <div class="hud">
+      <button id="btnPlace" class="btn" title="Place Mark">
+        <img class="pixel ui32" src="./ui/btn_star.PNG" alt="place">
+      </button>
+    </div>
+
+    <!-- HUD: right block (timer + visitors) -->
+    <div class="hud-right">
+      <div class="chip">Time: <b id="timer">120s</b></div>
+      <div class="chip">Visitors: <span id="visitors">0</span></div>
+    </div>
+
+    <!-- D-pad -->
+    <div class="dpad">
+      <img class="up"    src="./ui/dpad_up.PNG"    alt="up">
+      <img class="down"  src="./ui/dpad_down.PNG"  alt="down">
+      <img class="left"  src="./ui/dpad_left.PNG"  alt="left">
+      <img class="right" src="./ui/dpad_right.PNG" alt="right">
+    </div>
+  </div>
+
+  <!-- Three.js -->
+  <script type="module" src="https://unpkg.com/three@0.160.0/build/three.module.js"></script>
+  <!-- App -->
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
