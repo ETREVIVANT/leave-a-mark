@@ -1,0 +1,44 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reset world</title>
+
+<style>
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0b0b0b;color:#fff;display:grid;place-items:center;min-height:100vh;margin:0}
+  .card{background:#121212;padding:20px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.5);min-width:320px}
+  input,button{width:100%;padding:10px;border-radius:8px;border:1px solid #333;background:#1c1c1c;color:#fff}
+  button{cursor:pointer;margin-top:10px;background:#b91c1c}
+  .row{display:grid;gap:8px}
+  .ok{color:#22c55e}.err{color:#ef4444}
+</style>
+<div class="card">
+  <h2>Reset World</h2>
+  <div class="row">
+    <label>API Base (https://api.yourdomain.com)</label>
+    <input id="base" placeholder="https://api.yourdomain.com">
+    <label>Admin Token</label>
+    <input id="tok" placeholder="paste token" type="password">
+    <button id="go">Reset</button>
+    <div id="out"></div>
+  </div>
+
+  
+</div>
+<script type="module">
+
+  import { adminResetViaSocket } from './socket.js';
+  adminResetViaSocket('YOUR_ADMIN_TOKEN');
+
+  const out = document.getElementById('out');
+  document.getElementById('go').onclick = async () => {
+    out.textContent = '...';
+    const base = document.getElementById('base').value.trim();
+    const tok  = document.getElementById('tok').value.trim();
+    try{
+      const res = await fetch(`${base}/api/reset`, { method:'POST', headers:{ Authorization:`Bearer ${tok}` }});
+      const js = await res.json();
+      if(res.ok && js.ok){ out.innerHTML = '<div class="ok">Reset done.</div>'; }
+      else { out.innerHTML = `<div class="err">Failed: ${res.status} ${js.error||''}</div>`; }
+    }catch(e){ out.innerHTML = `<div class="err">${e}</div>`; }
+  };
+</script>
