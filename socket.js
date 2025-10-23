@@ -1,5 +1,5 @@
 // Point this to your public API domain (with HTTPS)
-export const SOCKET_BASE = "https://api.yourdomain.com"; // e.g., https://api.etrevivant.xyz
+export const SOCKET_BASE = "http://localhost:8787"; // e.g., https://api.etrevivant.xyz
 
 let socket;
 
