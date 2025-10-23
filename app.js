@@ -11,7 +11,7 @@ import { apiVisit, apiGetMarks, apiPostMark, apiStats } from './api.js';
 /* new *** -------- CONFIG -------- */
 const GRID_W = 64, GRID_H = 32, TILE = 1
 const SESSION_SECONDS = 120
-const RESET_WORLD = true  // toggle this true to reset everything once
+const RESET_WORLD = false  // toggle this true to reset everything once
 
 const PALETTE = [
   '#000000','#FFFFFF','#FF0000','#FF7F00','#FFFF00','#00FF00','#00FFFF',
