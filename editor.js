@@ -373,9 +373,9 @@ export function openPixelEditor({ onSave, onCancel, palette }) {
             style="width:256px;height:256px;max-width:72vw;image-rendering:pixelated;background:#fff;border:1px solid #000;box-shadow:0 0 0 2px rgba(0,0,0,.3) inset"></canvas>
         </div>
         <div>
-          <div style="font-size:12px;margin-bottom:6px">Palette</div>
+          <div style="font-size:12px;margin-bottom:6px"></div>
           <div id="pal" style="display:grid;grid-template-columns:repeat(4, 28px);gap:6"></div>
-          <div style="font-size:12px;margin-top:10px;color:#cbd5e1">Tip: right-click / two-finger = erase</div>
+          <div style="font-size:12px;margin-top:10px;color:#cbd5e1"></div>
         </div>
       </div>
       <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:12px">
