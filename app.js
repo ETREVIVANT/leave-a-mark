@@ -104,7 +104,6 @@ const ground = new THREE.Mesh(
 ground.rotation.x = -Math.PI/2
 scene.add(ground)
 
-// Optional play_area overlay (if present)
 let playArea = null
 try {
   const tex = loader.load('./assets/play_area.png', (t)=>{
