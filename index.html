@@ -1,92 +1,110 @@
 <!doctype html>
 <html>
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Leave a mark, make this a place</title>
-  
+  <meta charset="utf-8"/>
+  <meta name="viewport"
+        content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
+  <title>Leave a mark</title>
   <style>
-    html,body{margin:0;height:100%;background:#000;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-    /* Fullscreen play area */
-
+    html,body{margin:0;height:100%;background:#000;overscroll-behavior:none;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+    /* Fullscreen stage */
     #mount{position:relative;width:100vw;height:100vh;overflow:hidden;touch-action:none}
-    #mount, #mount canvas {
-    cursor: url('./ui/click_mark.png') 64 64, pointer;}
     canvas{display:block;touch-action:none}
-    .pixel{image-rendering:pixelated}
-    .btn{background:transparent;border:0;padding:0;}
 
-    /* HUD overlay (top-left) */
-    .hud{
-      position:absolute;left:12px;top:12px;z-index:50;
-      display:flex;gap:12px;align-items:center;
-  
-    }
+    /* HUD left (CTA) */
+    .hud{position:absolute;left:12px;top:12px;z-index:50;display:flex;gap:12px;align-items:center}
+    .cta{color:#fff;background:#0008;border:1px solid #ffffff22;border-radius:12px;padding:10px 14px;font-size:14px}
 
-    /* Floating "Leave a mark" text
-    .floating-text{
-      position:fixed;left:50%;top:8%;transform:translateX(-50%);
-      z-index:50;font-size:20px;letter-spacing:1px;font-weight:500;color:#fff;
-      text-shadow:0 0 8px rgba(0,0,0,.6);pointer-events:none;animation:float 4s ease-in-out infinite;
-    }
-    @keyframes float{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,-6px)}} */
-
-      
+    /* HUD right (timer/visitors/marks) */
+    .hud-right{position:absolute;right:12px;top:12px;z-index:50;display:flex;gap:12px;align-items:center;background:#0008;border:1px solid #ffffff22;border-radius:12px;padding:8px 10px}
     .chip{font-size:12px;color:#e5e7eb}
-    .ui32{width:32px;height:32px}
-    .ui16h{height:16px}
 
-    /* Timer cluster (top-right) */
-    .hud-right{
-      position:absolute;right:12px;top:12px;z-index:50;
-      display:flex;gap:12px;align-items:center;
-      background:rgba(0,0,0,.45);backdrop-filter:blur(2px);
-      border-radius:12px;padding:8px 10px;border:1px solid rgba(255,255,255,.08)
-    }
-
-     #mount, canvas{cursor:url('./ui/click_mark.png') 16 16, auto}
-    body.editor-open #mount, body.editor-open canvas{cursor:url('./ui/cursor_cross.png') 16 16, crosshair}
-    /* Mobile D-pad (bottom-left) */
-    .dpad{
-      position:absolute;left:12px;bottom:12px;z-index:50;
-      display:grid;grid-template-areas:". up .""left . right"". down .";gap:8px;
-      touch-action:none;user-select:none
-    }
-    .dpad img{width:64px;height:64px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.6))}
+    /* D-pad */
+    .dpad{position:absolute;left:12px;bottom:12px;z-index:60;display:grid;grid-template-areas:". up .""left . right"". down .";gap:10px;touch-action:none;user-select:none}
+    .dpad img{width:min(18vw,84px);height:min(18vw,84px);filter:drop-shadow(0 2px 6px rgba(0,0,0,.6))}
     .dpad .up{grid-area:up}.dpad .down{grid-area:down}.dpad .left{grid-area:left}.dpad .right{grid-area:right}
 
-    /* Pixel editor modal overlay */
-    .overlay{position:fixed;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.45);z-index:100}
-    .nine{border:8px solid transparent;border-image:url(./ui/panel_frame.PNG) 8 fill stretch}
-  </style> 
+        /* make the editor action bar float above the frame, centered and readable */
+    .editor-actions{
+      position:absolute;
+      left:50%;
+      bottom:6%;
+      transform:translateX(-50%);
+      z-index:2;                         /* above the frame */
+      display:flex;
+      gap:28px;
+      align-items:center;
+      padding:10px 14px;
+      background:rgba(0,0,0,.65);        /* dark plate behind icons */
+      border:1px solid rgba(255,255,255,.22);
+      border-radius:14px;
+      backdrop-filter: blur(2px);
+    }
 
+    /* larger buttons with strong contrast and click area */
+    .btn-img{
+      width:min(40vw, 220px);            /* bigger, responsive */
+      height:auto;
+      image-rendering:pixelated;
+      filter: drop-shadow(0 4px 14px rgba(0,0,0,.9));
+      cursor:pointer;
+      /* add a subtle “stroke” glow for visibility on light frames */
+      box-shadow:
+        0 0 0 2px rgba(0,0,0,.35),
+        0 0 0 4px rgba(255,255,255,.18) inset;
+      border-radius:8px;                 /* expands the click target */
+    }
+
+    /* keyboard accessibility cue */
+    .btn-img:focus-visible{
+      outline:3px solid #fff;
+      outline-offset:4px;
+    }
+
+    /* Editor modal */
+    .overlay{position:fixed;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.45);z-index:100}
+    .editor-wrap{position:relative;width:min(92vw,700px);aspect-ratio:4/3;display:grid;place-items:center}
+    .editor-frame{position:absolute;inset:0;background:url('./ui/editor_frame.PNG') center/contain no-repeat;image-rendering:pixelated;pointer-events:none}
+    .panel{display:grid;grid-template-rows:1fr auto;gap:12px;place-items:center;width:78%;max-width:560px}
+    .pixel-canvas{width:min(70vw,512px);height:min(52vw,384px);image-rendering:pixelated;background:#ffffff;border:2px solid #333;border-radius:8px;touch-action:none}
+    .palette{display:grid;grid-template-columns:repeat(8,1fr);gap:8px;justify-items:center}
+    .swatch{width:30px;height:30px;border-radius:6px;border:1px solid #0003}
+    .actions{display:flex;gap:24px;align-items:center;justify-content:center;margin-top:4px}
+    .btn-img{width:min(26vw,200px);height:auto;image-rendering:pixelated}
+
+    /* Cursor images */
+    #mount, #mount canvas { cursor:url('./ui/click_mark.png') 48 48, pointer; }
+    body.editor-open #mount, body.editor-open canvas { cursor:url('./ui/cursor_cross.PNG') 20 20, crosshair; }
+
+      .zoom-toggle{
+    position:absolute; right:12px; bottom:12px; z-index:65;
+    background:#000a; color:#fff; border:1px solid #ffffff22;
+    border-radius:12px; padding:10px 14px; font-size:14px;
+    backdrop-filter: blur(2px);
+    }
+
+  </style>
 </head>
 <body>
   <div id="mount">
-    
-    <div class="hud">
-      <button id="btnPlace" class="btn" title="Place Mark">
-    <p>Leave a mark</p>
-      </button>
-    </div> 
-    
     <div class="hud-right">
-      <div class="chip">Time: <b id="timer">300s</b></div>
+      <div class="chip">Time: <b id="timer">720s</b></div>
       <div class="chip">Visitors: <span id="visitors">0</span></div>
+      <div class="chip">Marks: <span id="marks">0</span></div>
     </div>
-
-
     <div class="dpad">
       <img class="up"    src="./ui/dpad_up.PNG"    alt="up">
       <img class="down"  src="./ui/dpad_down.PNG"  alt="down">
       <img class="left"  src="./ui/dpad_left.PNG"  alt="left">
       <img class="right" src="./ui/dpad_right.PNG" alt="right">
     </div>
+    <!-- Bottom-right zoom toggle -->
+    <button id="zoomToggle" class="zoom-toggle">Full map</button>
   </div>
 
-
+  <!-- Three.js first -->
   <script type="module" src="https://unpkg.com/three@0.160.0/build/three.module.js"></script>
-  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" defer></script>
+  <!-- App code (ES modules) -->
   <script type="module" src="./js/app.js"></script>
 </body>
 </html>
