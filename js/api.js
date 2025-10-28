@@ -2,6 +2,34 @@
 // Examples:
 //   const API_BASE = "https://api.yourdomain.com";
 //   const API_BASE = "http://<your-server-ip>:8787";
+
+
+const timerEl    = document.getElementById('timer');
+const visitorsEl = document.getElementById('visitors');
+const marksEl    = document.getElementById('marks');
+
+const setCounts = ({ visitors, marks }) => {
+  if (typeof visitors === 'number') visitorsEl.textContent = String(visitors);
+  if (typeof marks === 'number')    marksEl.textContent    = String(marks);
+};
+
+// connectSocket({
+//   onInit: ({ visitors, marks, recentMarks }) => {
+//     setCounts({ visitors, marks });
+//     (recentMarks || []).forEach(m => addMarkSprite(m.data, m.gx, m.gy));
+//     applyDecay();
+//   },
+//   onNewMark: (mark, stats) => {
+//     addMarkSprite(mark.data, mark.gx, mark.gy);
+//     if (stats) setCounts(stats);
+//     applyDecay();
+//   },
+//   onReset: () => {
+//     // simplest: reload to clear local scene
+//     location.reload();
+//   }
+// });
+
 export const API_BASE = "https://api.yourdomain.com";
 
 // --- tiny helpers ---
