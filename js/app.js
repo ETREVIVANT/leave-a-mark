@@ -22,7 +22,7 @@ import { openPixelEditor } from './editor.js'
 /* ======================= CONFIG ======================= */
 const GRID_W = 64, GRID_H = 32, TILE = 1
 const SESSION_SECONDS = 1000
-const RESET_WORLD = true
+const RESET_WORLD = false
 const SHOW_GRID_AND_FENCE = true
 const CAMERA_DIVISOR_DEFAULT = 5       // normal zoom
 const CAMERA_DIVISOR_FULL = 1.5        // full map toggle
