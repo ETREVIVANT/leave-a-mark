@@ -2,6 +2,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Reset world</title>
+
 <style>
   body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0b0b0b;color:#fff;display:grid;place-items:center;min-height:100vh;margin:0}
   .card{background:#121212;padding:20px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.5);min-width:320px}
@@ -24,6 +25,10 @@
   
 </div>
 <script type="module">
+
+  import { adminResetViaSocket } from './socket.js';
+  adminResetViaSocket('YOUR_ADMIN_TOKEN');
+
   const out = document.getElementById('out');
   document.getElementById('go').onclick = async () => {
     out.textContent = '...';
